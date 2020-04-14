@@ -2,6 +2,9 @@
 
 import Vue from 'vue';
 import axios from "axios";
+import LocalStorageService from "../services/storage/localStorageService";
+
+const localStorageService = LocalStorageService.getService();
 
 // Full config:  https://github.com/axios/axios#request-config
 // axios.defaults.baseURL = process.env.baseURL || process.env.apiUrl || '';
@@ -17,13 +20,13 @@ let config = {
 const _axios = axios.create(config);
 
 _axios.interceptors.request.use(
-  function(config) {
+ config => {
     config.headers.Accept = "application/json"
-   
+
     // Do something before request is sent
     return config;
   },
-  function(error) {
+  error => {
     // Do something with request error
     return Promise.reject(error);
   }
@@ -31,17 +34,69 @@ _axios.interceptors.request.use(
 
 // Add a response interceptor
 _axios.interceptors.response.use(
-  function(response) {
+  response => {
     // Do something with response data
     return response;
   },
-  function(error) {
+  error => {
     // Do something with response error
     return Promise.reject(error);
   }
 );
 
-Plugin.install = function(Vue) {
+// Add a token request interceptor
+_axios.interceptors.request.use(
+  config => {
+    const token = localStorageService.getAccessToken();
+    if (token !== null) {
+      config.headers['Authorization'] = 'Bearer ' + token;
+    } else {
+      // log error? check if token!==null logic works
+    }
+    return config;
+  },
+  error => {
+    Promise.reject(error)
+  })
+
+// Add a token response interceptor
+_axios.interceptors.response.use(
+  response => {
+    if (response.request.responseURL.includes("oauth/token"))
+      localStorageService.setToken(response.data)
+    return response
+  },
+  error => {
+    const originalRequest = error.config;
+    if (error.response.status === 401 && !originalRequest._retry) {
+
+      originalRequest._retry = true;
+      return axios.post('http://bouldergoals.test/oauth/token',
+        {
+          'grant_type': 'refresh_token',
+          'client_id': 2,
+          'client_secret': 'axRhKwudPT9e6smaYzbe5TLk3U8CUpLv2lGO8EF6',
+          "refresh_token": localStorageService.getRefreshToken()
+        })
+        .then(res => {
+          if (res.status === 201) {
+            // 1) put token to LocalStorage
+            localStorageService.setToken(res.data);
+
+            // 2) Change Authorization header
+            axios.defaults.headers.common['Authorization'] = 'Bearer ' + localStorageService.getAccessToken();
+
+            // 3) return originalRequest object with Axios.
+            return axios(originalRequest);
+          }
+        })
+    }
+
+    // return Error object with Promise
+    return Promise.reject(error);
+  })
+
+Plugin.install = function (Vue) {
   Vue.axios = _axios;
   window.axios = _axios;
   Object.defineProperties(Vue.prototype, {

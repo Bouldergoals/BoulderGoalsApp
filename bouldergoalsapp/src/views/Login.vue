@@ -10,7 +10,7 @@
           <v-card-text>
             <v-form>
               <v-text-field
-               label="Email"
+                label="Email"
                 name="email"
                 prepend-icon="mdi-account"
                 v-model="email"
@@ -34,6 +34,11 @@
         </v-card>
       </v-col>
     </v-row>
+    <v-row>
+      <v-col>
+        <v-btn @click="aRequest()">testing token</v-btn>
+      </v-col>
+    </v-row>
   </v-container>
 </template>
 
@@ -50,7 +55,7 @@ export default {
   data: () => ({
     email: "",
     password: "",
-    response: "",
+    response: ""
   }),
   methods: {
     login() {
@@ -63,12 +68,24 @@ export default {
           password: this.password
         })
         .then(response => {
-          this.response = response.data.bpi
+          this.response = response.data.bpi;
         })
         .catch(error => {
-          console.log(error)
-          this.errored = true
+          console.log(error);
+          this.errored = true;
+        });
+    },
+    aRequest() {
+      this.$axios
+        .get("http://bouldergoals.test/api/boulders")
+        .then(response => {
+          console.log("data : ", respnse.data);
+          this.response = response.data.bpi;
         })
+        .catch(error => {
+          console.log(error);
+          this.errored = true;
+        });
     }
   }
 };
